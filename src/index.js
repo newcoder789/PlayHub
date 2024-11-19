@@ -10,7 +10,7 @@ import { app } from "./app.js";
 // !st process 
 import connectDB from "./db/index.js";
 dotenv.config({
-    path:'./env'
+    path:'./.env'
 })
 
 // now to make import statement work we have to reload our env config we can add experimental feature in package.json
