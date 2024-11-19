@@ -2,11 +2,8 @@
 // require("dotenv").config({path:'./env'})
 // always apply try/catch and async await while connecting with database 
 
-import mongoose from "mongoose";
-import {DB_NAME} from "./constants.js";
 import dotenv from 'dotenv';
-import express from "express";
-const app = express();
+import { app } from "./app.js";
 
 
 
@@ -48,6 +45,9 @@ connectDB()
 
 
 // this is approach to write simple all code in index without importing
+
+// import mongoose from "mongoose";
+// import {DB_NAME} from "./constants.js";
 // const app = express();
 
 // // now we will use iffis (which should always start with ";")
