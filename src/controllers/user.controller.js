@@ -4,6 +4,21 @@ import {User}  from "../models/user.model.js";
 import {uploadOnCLoudinary} from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
 
+
+
+const generateAccessAndRefreshToken  = async (userId)=>{
+    try {
+        const user = User.findOne(userId)
+        const accessToken = user.generateAccessToken()
+        const refreshToken = user.generateRefreshToken()
+        user.refreshToken = refreshToken
+        await user.save({ validateBeforeSave :false})
+
+        return {accessToken, refreshToken}
+    } catch (error) {
+        throw new ApiError(500, "Something went wrong while generating tokens");
+    }
+}
 // Logic building 
 
 // 1. for registering a user 
@@ -37,7 +52,7 @@ const registerUser = asyncHandler( async (req,res) =>{
 
     // check for images, files 
 
-    // multer just adds propery to req where we saved it as avatar now it could be manuy things like jpg, png hence[0] which might and might not exist then path gives us the path of that file 
+    // multer just adds propery to req where we saved it as avatar now it could be many things like jpg, png hence[0] which might and might not exist then path gives us the path of that file 
 
     
     const avatarLocalPath = req.files?.avatar[0]?.path;
@@ -85,10 +100,95 @@ const registerUser = asyncHandler( async (req,res) =>{
     if(!createdUser){
         throw new ApiError(500, "Something went wrong while registering the user")
     }
-    
+
     // return respond
     return res.status(201).json(
         new ApiResponse(201, createdUser, "User registered successfully")
     )
 })
-export {registerUser};
+
+
+//2.  login a User
+// ---a. take data from user 
+// ---b. username or email base pe login
+// ---c. find user if not user u r not here
+// ---d. if yes check password if not password=>try again
+// ---e. if yes access refresh and access token 
+// ---f. send secure cookies
+// ---g. send response for user login
+const loginUser = asyncHandler( async (req,res)=>{
+    const {email, username, password} = req.body;
+    console.log(email,username, password)
+    if (!username || !email || !password){
+        throw new ApiError(400, "Please provide all the required fields")
+    }
+
+    const user = await User.findOne({
+        $or: [{username}, {email}]
+    })
+
+    if(!user){
+        throw new ApiError(404, "Username is not found")
+    } 
+
+    const isPasswordCorrect = await user.isPasswordCorrect(password);
+    if (!isPasswordCorrect){
+        throw new ApiError(401, "Invalid User Credentials")
+    }
+
+    const {accessToken,  refreshToken} = await generateAccessAndRefreshToken(user._id);
+
+    // this modified user object now contains the sensitive refreshToken which shouldn't be sent to the client. By fetching the user again with .select("-password -refreshToken"), you ensure that the returned object loggedInUser is sanitized and safe to send back to the client
+    const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
+    // make it only modefied by server
+    const options = {
+        httpOnly: true,
+        secure:true
+    }
+    return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    // we are sending throw json also as it might be a mobile user which will need a header
+    .json(
+        new ApiResponse(
+            200, 
+            {
+                user:loggedInUser,accessToken,
+                refreshToken
+            }, 
+            "User logged in successfully"
+        )
+    )
+})
+
+
+const logoutUser = asyncHandler( async (req,res)=>{
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set:{
+                refreshToken: undefined
+            }
+        },
+        {
+            new:true
+        }
+    )
+    const options = {
+        httpOnly: true,
+        secure:true
+    }
+    return res
+    .status(200)
+    .clearCookie("accessToken",options)
+    .clearCookie("refreshToken",options)
+    .json( new ApiResponse(200, {}, "User logged out successfully"))
+
+})
+export {
+    loginUser,
+    logoutUser,
+    registerUser,
+
+};
