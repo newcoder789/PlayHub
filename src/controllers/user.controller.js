@@ -8,15 +8,15 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 
 const generateAccessAndRefreshToken  = async (userId)=>{
     try {
-        const user = User.findOne(userId)
-        const accessToken = user.generateAccessToken()
+        const user = await User.findById(userId)
+        const accessToken =  user.generateAccessToken()
         const refreshToken = user.generateRefreshToken()
         user.refreshToken = refreshToken
         await user.save({ validateBeforeSave :false})
 
         return {accessToken, refreshToken}
     } catch (error) {
-        throw new ApiError(500, "Something went wrong while generating tokens");
+        throw new ApiError(500, "Something went wrong while generating tokens", error);
     }
 }
 // Logic building 
@@ -117,12 +117,11 @@ const registerUser = asyncHandler( async (req,res) =>{
 // ---f. send secure cookies
 // ---g. send response for user login
 const loginUser = asyncHandler( async (req,res)=>{
-    const {email, username, password} = req.body;
-    console.log(email,username, password)
-    if (!username || !email || !password){
-        throw new ApiError(400, "Please provide all the required fields")
-    }
+    const {email, username, password} = req.body
 
+    if (!username && !email) {
+        throw new ApiError(400, "username or email is required")
+    }
     const user = await User.findOne({
         $or: [{username}, {email}]
     })
