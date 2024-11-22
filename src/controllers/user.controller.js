@@ -253,6 +253,7 @@ const getCurrentUser = asyncHandler(async (req,res)=>{
     .json(new ApiResponse(200,req.user,"current user fetched succefully"))
 })
 
+
 const updateAccountDetails = asyncHandler( async(req,res)=>{
     const {fullName, email} = res.body
     if(!fullName|| !email){
@@ -274,6 +275,7 @@ const updateAccountDetails = asyncHandler( async(req,res)=>{
     .status(200)
     .json(new ApiResponse(200, user, "Account details updated successfully"))
 })
+
 
 const updateUserAvatar = asyncHandler( async(req,res)=>{
     const avatarLocalPath = req.file?.path
@@ -315,6 +317,8 @@ const updateUserAvatar = asyncHandler( async(req,res)=>{
     )
 
 })
+
+
 const updateUserCoverImage = asyncHandler( async(req,res)=>{
     const coverImageLocalPath = req.file?.path
 
@@ -348,6 +352,79 @@ const updateUserCoverImage = asyncHandler( async(req,res)=>{
     )
 
 })
+
+
+// main hard work 
+const getUserChannelProfile = asyncHandler( async(req, res)=>{
+    const {username } = req.params
+
+    if(!username?.trim()){
+        throw new ApiError(400, "Username is missing")
+    }
+
+    const channel = await  User.aggregate([
+        {
+            // This is a stage in the aggregation pipeline. The $ match stage filters the documents in the collection to pass only those that match the specified condition(s) to the next stage of the pipeline. It's similar to a find operation in MongoDB but is used within the aggregation framework.
+            $match:{
+                username:username?.toLowerCase()
+            }
+        },{
+            //  This stage is used to perform a left outer join between two collections in MongoDB.
+            $lookup:{
+                from:"subscriptions",
+                localField:"_id",
+                foreignField:"channel",
+                as:"subscribers"
+            }
+        },{
+            $lookup:{
+                from:"subscriptions",
+                localField:"_id",
+                foreignField:"subscriber",
+                as:"subscribedTo"
+            }
+        },{
+            // thi swill add these field to the user 
+            $addfield:{
+                subscribersCount:{
+                    $size:"$subscribers"
+                },
+                channelsSubscribedToCount:{
+                    $size:"$subscribedTo"
+                },
+                // u can use "$" "cond" to apply condition in which we have in which says if we have [this element in , this(could be array or even  object )]
+                isSubscribed:{
+                    $cond:{
+                        if:{$in:[req.user?._id,"$subscribers.subscriber"]},
+                        then:true,
+                        else:false
+                    }
+                }
+            }
+        },{
+            // this filters what data u want to give 1 for yes if u want to give
+            $project:{
+                fullName:1,
+                userName:1,
+                subscribersCount:1,
+                channelsSubscribedToCount:1,
+                isSubscribed:1,
+                avatar:1,
+                coverImage:1,
+                email:1
+            }
+        }
+    ])
+    if(!channel.length){
+        throw new ApiError(404,"channel does not exist");
+    }
+    return res
+    .status(200)
+    .json( new ApiResponse(200, channel[0], "User channel fetched Successfully "))
+})
+
+
+
 export {
     loginUser,
     logoutUser,
