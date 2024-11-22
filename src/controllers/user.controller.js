@@ -19,6 +19,8 @@ const generateAccessAndRefreshToken  = async (userId)=>{
         throw new ApiError(500, "Something went wrong while generating tokens", error);
     }
 }
+
+
 // Logic building 
 
 // 1. for registering a user 
@@ -423,7 +425,63 @@ const getUserChannelProfile = asyncHandler( async(req, res)=>{
     .json( new ApiResponse(200, channel[0], "User channel fetched Successfully "))
 })
 
+const getWatchHistory = asyncHandler( async(req,res)=>{
+    // if someone ask what do you get with this =>req.user.id
+    // what u get is "string"   which get stored as  ObjectId("string ") automatically my mongoose internally 
+    // so if u do that u will have to convert it , since when weuse aggregate pipeline it gives its code directly hence we have to change it using 
+    // $match:{_id:new mongoose.Types.ObjectId(req.user._id) and not just _id:req.user._id} 
 
+    const user = await User.aggregate([
+        {
+            $match:{
+                _id:new mongoose.Types.ObjectId(req.user._id)
+            }
+        },{
+            $lookup:{
+                from:"videos",
+                localField:"watchHistory",
+                foreignField:"_id",
+                as:"watchHistory",
+                pipeline :[
+                    {
+                        $lookup:{
+                            from:"users",
+                            localField:"owner",
+                            foreignField:"_id",
+                            as:"owner",
+                            pipeline:[
+                                {
+                                    $project:{
+                                        fullName:1,
+                                        username:1,
+                                        avatar:1
+                                    }
+                                }
+                            ]
+                        }
+                    },{
+                        // when we have done all buisiness in owner model, it will give us array and to fix that we are applying another pipeline
+                        $addFields:{
+                            // we can change name and make another field , but this will just overwrite this field
+                            owner:{
+                                $first:"$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ])
+
+    return res
+    .status(200)
+    .json( new ApiResponse(
+        200,
+        user[0].watchHistory, // check whether this work we added aggregation pipeline first thing from array logic in fucntion itself
+        "watch history fetched succesfully"
+
+    ))
+}) 
 
 export {
     loginUser,
@@ -435,6 +493,9 @@ export {
     updateAccountDetails,
     updateUserAvatar,
     updateUserCoverImage,
+    getWatchHistory,
+    getUserChannelProfile,
+    
 
 };
     
