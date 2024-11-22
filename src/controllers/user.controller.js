@@ -250,7 +250,7 @@ const changeCurrentPassword = asyncHandler( async(req,res)=>{
 const getCurrentUser = asyncHandler(async (req,res)=>{
     return res
     .status(200)
-    .json(200,req.user,"current user fetched succefully")
+    .json(new ApiResponse(200,req.user,"current user fetched succefully"))
 })
 
 const updateAccountDetails = asyncHandler( async(req,res)=>{
@@ -281,8 +281,15 @@ const updateUserAvatar = asyncHandler( async(req,res)=>{
     if(!avatarLocalPath){
         throw new ApiError(400, "Avatar file not found while updating")
     }
-    
 
+    // code to to delete old avatar from cloudinary 
+    const oldUser = await User.findById(req.user?._id)
+    cloudinary.v2.uploader
+    .destroy(oldUser.avatar.public_id)
+    .then(result=>console.log(result));
+    if(!user){
+        throw new ApiError(401, "Invalid user")
+    }
     const avatar = await uploadOnCLoudinary(avatarLocalPath)
 
     if(!avatar.url){
@@ -351,6 +358,6 @@ export {
     updateAccountDetails,
     updateUserAvatar,
     updateUserCoverImage,
-    
+
 };
     
