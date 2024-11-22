@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { loginUser, logoutUser, registerUser, refreshAccessToken } from "../controllers/user.controller.js";
+import { loginUser, logoutUser, registerUser, refreshAccessToken, changeCurrentPassword, updateAccountDetails, updateUserAvatar, updateUserCoverImage, getUserChannelProfile, getWatchHistory } from "../controllers/user.controller.js";
 import { upload } from "../middleware/multer.middleware.js";
 import { verifyJWT } from "../middleware/auth.middleware.js";
 
@@ -18,4 +18,21 @@ router.route("/logout").post(verifyJWT,logoutUser)
 
 router.route("/refreshToken").post(refreshAccessToken)
 
+router.route("/changePassword").post(verifyJWT, changeCurrentPassword)
+
+router.route("/current-user").get(verifyJWT, getCurrentUser)
+
+
+// remember to change route to patch ,so that it do not change complete data  and only update the things given 
+router.route("/update-account").patch(verifyJWT, updateAccountDetails)
+
+
+router.route("/avatar").patch(verifyJWT, upload.single("avatar"), updateUserAvatar)
+
+router.route("/cover-image").patch(verifyJWT, upload.single("cover-image"), updateUserCoverImage)
+
+// this time  we are taking {username} with params, hence we have to change it accordingly
+router.route("/c/:username").get(verifyJWT, getUserChannelProfile)
+
+router.route("/history").get(verifyJWT, getWatchHistory)
 export default router;
